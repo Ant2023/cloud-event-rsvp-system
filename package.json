@@ -1,0 +1,24 @@
+{
+  "name": "cloud-event-rsvp-system",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ant2023/cloud-event-rsvp-system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Ant2023/cloud-event-rsvp-system/issues"
+  },
+  "homepage": "https://github.com/Ant2023/cloud-event-rsvp-system#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
