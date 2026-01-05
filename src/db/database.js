@@ -16,6 +16,18 @@ db.serialize(() => {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+   db.run(`
+    CREATE TABLE IF NOT EXISTS rsvps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'going',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(event_id, email),
+      FOREIGN KEY(event_id) REFERENCES events(id)
+    )
+  `);
 });
 
 module.exports = db;
