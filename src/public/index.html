@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cloud Event RSVP System</title>
+
+  <!-- Tailwind (CDN) -->
+   
+  <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          primary: '#6D28D9',   // violet
+          accent: '#22D3EE',    // cyan
+          dark: '#0F172A'
+        }
+      }
+    }
+  }
+</script>
+
+  <style>
+    /* Tiny extras */
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,.75); }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <!-- NAVBAR -->
+  <header class="sticky top-0 z-50 border-b border-slate-200 bg-white/85 glass">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-3">
+        <div class="h-9 w-9 rounded-xl bg-slate-900 text-white grid place-items-center font-semibold">CE</div>
+        <div>
+          <p class="text-sm font-semibold leading-none">Cloud Events</p>
+          <p class="text-xs text-slate-500 leading-none">RSVP Demo</p>
+        </div>
+      </div>
+
+      <nav class="hidden items-center gap-6 md:flex text-sm">
+        <a href="#events" class="text-slate-600 hover:text-slate-900">Events</a>
+        <a href="#how" class="text-slate-600 hover:text-slate-900">How it works</a>
+        <a href="#faq" class="text-slate-600 hover:text-slate-900">FAQ</a>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <button id="btnRefresh" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">
+          Refresh
+        </button>
+        <button id="btnOpenCreate" class="rounded-xl bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800">
+          Create event
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOAST / ALERT -->
+  <div class="mx-auto max-w-6xl px-4 pt-4">
+    <div id="toast" class="hidden rounded-2xl border px-4 py-3 text-sm"></div>
+  </div>
+
+  <!-- HERO -->
+  <section class="mx-auto max-w-6xl px-4 pt-8 pb-6">
+    <div class="rounded-3xl bg-gradient-to-br from-primary via-indigo-600 to-accent text-white p-8 md:p-10 shadow-lg">
+      <div class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div class="max-w-2xl">
+          <p class="text-xs uppercase tracking-widest text-white/70">Capstone Demo UI</p>
+          <h1 class="mt-2 text-3xl md:text-4xl font-semibold leading-tight">
+            Event listings + RSVPs, served from the same Express app.
+          </h1>
+          <p class="mt-3 text-white/80 text-sm md:text-base">
+            This page is a lightweight front-end to visually demonstrate the backend:
+            create events, RSVP with capacity enforcement, and prevent duplicates.
+          </p>
+
+          <div class="mt-5 flex flex-wrap gap-3">
+            <a href="#events" class="rounded-xl bg-white text-slate-900 px-4 py-2 text-sm font-medium hover:bg-slate-100">
+              Browse events
+            </a>
+            <button id="btnOpenCreate2" class="rounded-xl border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/10">
+              Create an event
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-3 gap-3 md:gap-4">
+          <div class="rounded-2xl bg-white/10 border border-white/10 p-4">
+            <p class="text-xs text-white/70">Events</p>
+            <p id="statEvents" class="mt-1 text-2xl font-semibold">—</p>
+          </div>
+          <div class="rounded-2xl bg-white/10 border border-white/10 p-4">
+            <p class="text-xs text-white/70">Total RSVPs</p>
+            <p id="statRsvps" class="mt-1 text-2xl font-semibold">—</p>
+          </div>
+          <div class="rounded-2xl bg-white/10 border border-white/10 p-4">
+            <p class="text-xs text-white/70">API</p>
+            <p class="mt-1 text-2xl font-semibold">OK</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <main class="mx-auto max-w-6xl px-4 pb-14">
+    <!-- EVENTS HEADER -->
+    <section id="events" class="pt-6">
+      <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 class="text-2xl font-semibold">Upcoming events</h2>
+          <p class="text-sm text-slate-600">Click an event to view RSVPs and submit your own.</p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+          <input id="search" class="w-full sm:w-72 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                 placeholder="Search title/location…" />
+          <select id="sort" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+            <option value="newest">Sort: newest</option>
+            <option value="oldest">Sort: oldest</option>
+            <option value="capacityHigh">Sort: capacity high</option>
+            <option value="capacityLow">Sort: capacity low</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- GRID -->
+      <div id="eventsGrid" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+      <!-- Empty -->
+      <div id="emptyState" class="hidden mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+        <p class="text-sm text-slate-600">No events yet. Create your first event to start the demo.</p>
+        <button id="btnOpenCreate3" class="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
+          Create event
+        </button>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how" class="pt-12">
+      <div class="rounded-3xl bg-white border border-slate-200 p-6 md:p-8">
+        <h3 class="text-xl font-semibold">How it works</h3>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <p class="font-medium">1) Create an event</p>
+            <p class="mt-1 text-slate-600">Events are stored in SQLite with title, date, location, description, and capacity.</p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <p class="font-medium">2) RSVP</p>
+            <p class="mt-1 text-slate-600">Submit an RSVP (going/interested). Capacity is enforced for “going”.</p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <p class="font-medium">3) Validate & prevent duplicates</p>
+            <p class="mt-1 text-slate-600">Backend checks event existence, validates input, and prevents duplicate RSVP entries.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="pt-12">
+      <div class="rounded-3xl bg-white border border-slate-200 p-6 md:p-8">
+        <h3 class="text-xl font-semibold">FAQ</h3>
+        <div class="mt-4 space-y-3 text-sm">
+          <details class="rounded-2xl border border-slate-200 p-4">
+            <summary class="cursor-pointer font-medium">Can I get a refund?</summary>
+            <p class="mt-2 text-slate-600">
+              Refunds depend on the event. Some events may offer full or partial refunds up to a certain date, while others may be non-refundable. If an event is canceled, attendees will be notified and refunds will be handled accordingly.
+            </p>
+          </details>
+          <details class="rounded-2xl border border-slate-200 p-4">
+            <summary class="cursor-pointer font-medium">What happens if the event reaches capacity?</summary>
+            <p class="mt-2 text-slate-600">
+              Once an event reaches its maximum capacity, additional “going” RSVPs are no longer accepted. You may still be able to mark yourself as “interested” if that option is available.
+            </p>
+          </details>
+          <details class="rounded-2xl border border-slate-200 p-4">
+            <summary class="cursor-pointer font-medium">What routes does it use?</summary>
+            <p class="mt-2 text-slate-600">
+              <code class="text-slate-900">/events</code> and <code class="text-slate-900">/rsvps</code> (with <code>?event_id=</code> for filtering).
+            </p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-200 bg-white">
+    <div class="mx-auto max-w-6xl px-4 py-8">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <p class="text-sm text-slate-600">
+          © <span id="year"></span> Cloud Event RSVP System • Demo UI served by Express
+        </p>
+        <div class="flex gap-4 text-sm">
+          <a href="/health" class="text-slate-600 hover:text-slate-900">Health</a>
+          <a href="/events" class="text-slate-600 hover:text-slate-900">Events API</a>
+          <a href="/rsvps" class="text-slate-600 hover:text-slate-900">RSVPs API</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- CREATE EVENT MODAL -->
+  <div id="createModal" class="fixed inset-0 hidden items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-xl rounded-3xl bg-white p-6 shadow-lg">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-semibold">Create event</h3>
+          <p class="text-sm text-slate-600">Add a new event to the system.</p>
+        </div>
+        <button id="btnCloseCreate" class="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">Close</button>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="md:col-span-2">
+          <label class="text-xs font-medium text-slate-700">Title</label>
+          <input id="ev_title" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="New in Town: Katy Trail Walk" />
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-700">Event date</label>
+          <input id="ev_date" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="2026-01-10 10:00" />
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-700">Capacity</label>
+          <input id="ev_capacity" type="number" min="1" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="30" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs font-medium text-slate-700">Location</label>
+          <input id="ev_location" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Katy Trail, Dallas" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs font-medium text-slate-700">Description (optional)</label>
+          <textarea id="ev_desc" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" rows="3"
+                    placeholder="What to bring, meetup details, etc."></textarea>
+        </div>
+      </div>
+
+      <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button id="btnCancelCreate" class="rounded-xl border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50">Cancel</button>
+        <button id="btnSubmitCreate" class="rounded-xl bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVENT DRAWER -->
+  <div id="drawer" class="fixed inset-0 hidden">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-xl flex flex-col">
+      <div class="border-b border-slate-200 p-5 flex items-start justify-between gap-3">
+        <div>
+          <p class="text-xs uppercase tracking-widest text-slate-500">Event details</p>
+          <h3 id="d_title" class="mt-1 text-xl font-semibold">—</h3>
+          <p id="d_meta" class="mt-1 text-sm text-slate-600">—</p>
+        </div>
+        <button id="btnCloseDrawer" class="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">Close</button>
+      </div>
+
+      <div class="p-5 overflow-auto">
+        <p id="d_desc" class="text-sm text-slate-700">—</p>
+
+        <div class="mt-6 rounded-2xl border border-slate-200 p-4">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold">RSVP</h4>
+            <span id="d_cap" class="text-xs text-slate-600">—</span>
+          </div>
+
+          <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-medium text-slate-700">Name</label>
+              <input id="r_name" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Your name" />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-700">Email</label>
+              <input id="r_email" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="you@email.com" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="text-xs font-medium text-slate-700">Status</label>
+              <select id="r_status" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                <option value="going">going</option>
+                <option value="interested">interested</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="btnSubmitRsvp" class="mt-4 w-full rounded-xl bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
+            Submit RSVP
+          </button>
+
+          <p id="r_msg" class="mt-2 text-sm text-slate-600"></p>
+        </div>
+
+        <div class="mt-6 rounded-2xl border border-slate-200 p-4">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold">Attendees</h4>
+            <button id="btnLoadRsvps" class="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
+          </div>
+          <ul id="r_list" class="mt-3 space-y-2 text-sm"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- API endpoints (match your backend) ---
+    const API = {
+      events: "/events",
+      rsvps: "/rsvps", // use ?event_id=ID for filtering
+    };
+
+    // --- Elements ---
+    const yearEl = document.getElementById("year");
+    const toastEl = document.getElementById("toast");
+
+    const eventsGrid = document.getElementById("eventsGrid");
+    const emptyState = document.getElementById("emptyState");
+    const searchEl = document.getElementById("search");
+    const sortEl = document.getElementById("sort");
+
+    const statEvents = document.getElementById("statEvents");
+    const statRsvps = document.getElementById("statRsvps");
+
+    // Create modal
+    const createModal = document.getElementById("createModal");
+    const btnOpenCreate = document.getElementById("btnOpenCreate");
+    const btnOpenCreate2 = document.getElementById("btnOpenCreate2");
+    const btnOpenCreate3 = document.getElementById("btnOpenCreate3");
+    const btnCloseCreate = document.getElementById("btnCloseCreate");
+    const btnCancelCreate = document.getElementById("btnCancelCreate");
+    const btnSubmitCreate = document.getElementById("btnSubmitCreate");
+
+    const evTitle = document.getElementById("ev_title");
+    const evDate = document.getElementById("ev_date");
+    const evLocation = document.getElementById("ev_location");
+    const evDesc = document.getElementById("ev_desc");
+    const evCapacity = document.getElementById("ev_capacity");
+
+    // Drawer
+    const drawer = document.getElementById("drawer");
+    const btnCloseDrawer = document.getElementById("btnCloseDrawer");
+    const dTitle = document.getElementById("d_title");
+    const dMeta = document.getElementById("d_meta");
+    const dDesc = document.getElementById("d_desc");
+    const dCap = document.getElementById("d_cap");
+
+    const rName = document.getElementById("r_name");
+    const rEmail = document.getElementById("r_email");
+    const rStatus = document.getElementById("r_status");
+    const btnSubmitRsvp = document.getElementById("btnSubmitRsvp");
+    const btnLoadRsvps = document.getElementById("btnLoadRsvps");
+    const rList = document.getElementById("r_list");
+    const rMsg = document.getElementById("r_msg");
+
+    const btnRefresh = document.getElementById("btnRefresh");
+
+    // State
+    let allEvents = [];
+    let activeEvent = null;
+
+    yearEl.textContent = new Date().getFullYear();
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function toast(text, type = "ok") {
+      toastEl.classList.remove("hidden");
+      toastEl.className = "rounded-2xl border px-4 py-3 text-sm";
+      if (type === "err") {
+        toastEl.classList.add("border-red-200", "bg-red-50", "text-red-700");
+      } else {
+        toastEl.classList.add("border-emerald-200", "bg-emerald-50", "text-emerald-700");
+      }
+      toastEl.textContent = text;
+      setTimeout(() => toastEl.classList.add("hidden"), 3500);
+    }
+
+    async function jsonFetch(url, opts = {}) {
+      const res = await fetch(url, {
+        headers: { "Content-Type": "application/json" },
+        ...opts
+      });
+      const contentType = res.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await res.json().catch(() => null)
+        : { message: await res.text().catch(() => "") };
+
+      if (!res.ok) {
+        throw new Error((data && (data.error || data.message)) || `Request failed: ${res.status}`);
+      }
+      return data;
+    }
+
+    function openCreateModal() {
+      createModal.classList.remove("hidden");
+      createModal.classList.add("flex");
+      evTitle.focus();
+    }
+
+    function closeCreateModal() {
+      createModal.classList.add("hidden");
+      createModal.classList.remove("flex");
+    }
+
+    function openDrawer(eventObj) {
+      activeEvent = eventObj;
+      dTitle.textContent = eventObj.title;
+      dMeta.textContent = `${eventObj.event_date} • ${eventObj.location}`;
+      dDesc.textContent = eventObj.description || "No description provided.";
+      dCap.textContent = `Capacity: ${eventObj.capacity}`;
+      rMsg.textContent = "";
+      rName.value = "";
+      rEmail.value = "";
+      rStatus.value = "going";
+      rList.innerHTML = `<li class="text-slate-500">Loading RSVPs…</li>`;
+      drawer.classList.remove("hidden");
+      loadRsvpsForActive();
+    }
+
+    function closeDrawer() {
+      drawer.classList.add("hidden");
+      activeEvent = null;
+    }
+
+    function filteredSortedEvents() {
+      const q = (searchEl.value || "").trim().toLowerCase();
+      let list = [...allEvents];
+
+      if (q) {
+        list = list.filter(e =>
+          (e.title || "").toLowerCase().includes(q) ||
+          (e.location || "").toLowerCase().includes(q)
+        );
+      }
+
+      const sort = sortEl.value;
+      if (sort === "oldest") list.sort((a, b) => a.id - b.id);
+      if (sort === "newest") list.sort((a, b) => b.id - a.id);
+      if (sort === "capacityHigh") list.sort((a, b) => (b.capacity ?? 0) - (a.capacity ?? 0));
+      if (sort === "capacityLow") list.sort((a, b) => (a.capacity ?? 0) - (b.capacity ?? 0));
+
+      return list;
+    }
+
+    function renderEvents() {
+      const list = filteredSortedEvents();
+      eventsGrid.innerHTML = "";
+
+      if (!list.length) {
+        emptyState.classList.remove("hidden");
+        return;
+      }
+      emptyState.classList.add("hidden");
+
+      for (const ev of list) {
+        const card = document.createElement("button");
+        card.className =
+          "text-left rounded-3xl bg-white border border-slate-200 p-5 hover:shadow-sm hover:border-slate-300 transition";
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-semibold">${escapeHtml(ev.title)}</h3>
+              <p class="mt-1 text-sm text-slate-600">${escapeHtml(ev.event_date)} • ${escapeHtml(ev.location)}</p>
+            </div>
+            <span class="shrink-0 rounded-2xl bg-indigo-100 text-indigo-700 text-xs px-3 py-1 font-medium">
+            Cap ${escapeHtml(ev.capacity)}
+</span>
+
+          </div>
+          <p class="mt-3 text-sm text-slate-700 line-clamp-3">${escapeHtml(ev.description || "No description provided.")}</p>
+          <div class="mt-4 flex items-center justify-between text-xs text-slate-500">
+            <span>Event ID: ${ev.id}</span>
+            <span>Click to RSVP →</span>
+          </div>
+        `;
+        card.addEventListener("click", () => openDrawer(ev));
+        eventsGrid.appendChild(card);
+      }
+    }
+
+    async function loadStats() {
+      try {
+        const [events, rsvps] = await Promise.all([
+          jsonFetch(API.events),
+          jsonFetch(API.rsvps)
+        ]);
+        statEvents.textContent = Array.isArray(events) ? events.length : "—";
+        statRsvps.textContent = Array.isArray(rsvps) ? rsvps.length : "—";
+      } catch {
+        // not fatal
+      }
+    }
+
+    async function loadEvents() {
+      const events = await jsonFetch(API.events);
+      allEvents = Array.isArray(events) ? events : [];
+const seen = new Set();
+allEvents = allEvents.filter(ev => {
+  const key = `${(ev.title || "").trim().toLowerCase()}|${(ev.event_date || "").trim()}|${(ev.location || "").trim().toLowerCase()}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+});
+
+renderEvents();
+
+      await loadStats();
+    }
+
+    async function createEvent() {
+      const payload = {
+        title: evTitle.value.trim(),
+        event_date: evDate.value.trim(),
+        location: evLocation.value.trim(),
+        description: evDesc.value.trim(),
+        capacity: Number(evCapacity.value)
+      };
+
+      if (!payload.title || !payload.event_date || !payload.location || !payload.capacity) {
+        toast("Please fill title, event date, location, and capacity.", "err");
+        return;
+      }
+
+      try {
+        await jsonFetch(API.events, { method: "POST", body: JSON.stringify(payload) });
+        toast("Event created.");
+        evTitle.value = "";
+        evDate.value = "";
+        evLocation.value = "";
+        evDesc.value = "";
+        evCapacity.value = "";
+        closeCreateModal();
+        await loadEvents();
+      } catch (e) {
+        toast(e.message, "err");
+      }
+    }
+
+    async function loadRsvpsForActive() {
+      if (!activeEvent) return;
+      try {
+        const rows = await jsonFetch(`${API.rsvps}?event_id=${activeEvent.id}`);
+        if (!rows.length) {
+          rList.innerHTML = `<li class="text-slate-500">No RSVPs yet.</li>`;
+          return;
+        }
+
+        rList.innerHTML = rows.map(r => `
+          <li class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between gap-3">
+            <div>
+              <p class="font-medium text-slate-900">${escapeHtml(r.name)}</p>
+              <p class="text-xs text-slate-600">${escapeHtml(r.email)}</p>
+            </div>
+            <span class="rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">${escapeHtml(r.status)}</span>
+          </li>
+        `).join("");
+
+      } catch (e) {
+        rList.innerHTML = `<li class="text-red-600">Error: ${escapeHtml(e.message)}</li>`;
+      }
+    }
+
+    async function submitRsvp() {
+      if (!activeEvent) return;
+
+      const payload = {
+        event_id: activeEvent.id,
+        name: rName.value.trim(),
+        email: rEmail.value.trim(),
+        status: rStatus.value
+      };
+
+      if (!payload.name || !payload.email) {
+        rMsg.textContent = "Name and email are required.";
+        rMsg.className = "mt-2 text-sm text-red-600";
+        return;
+      }
+
+      try {
+        await jsonFetch(API.rsvps, { method: "POST", body: JSON.stringify(payload) });
+        rMsg.textContent = "RSVP submitted.";
+        rMsg.className = "mt-2 text-sm text-emerald-700";
+        rName.value = "";
+        rEmail.value = "";
+        rStatus.value = "going";
+        await loadRsvpsForActive();
+        await loadStats();
+      } catch (e) {
+        rMsg.textContent = e.message;
+        rMsg.className = "mt-2 text-sm text-red-600";
+      }
+    }
+
+    // --- Wire up UI ---
+    btnOpenCreate?.addEventListener("click", openCreateModal);
+    btnOpenCreate2?.addEventListener("click", openCreateModal);
+    btnOpenCreate3?.addEventListener("click", openCreateModal);
+    btnCloseCreate?.addEventListener("click", closeCreateModal);
+    btnCancelCreate?.addEventListener("click", closeCreateModal);
+    btnSubmitCreate?.addEventListener("click", createEvent);
+
+    btnCloseDrawer?.addEventListener("click", closeDrawer);
+    btnLoadRsvps?.addEventListener("click", loadRsvpsForActive);
+    btnSubmitRsvp?.addEventListener("click", submitRsvp);
+
+    // clicking outside drawer closes it
+    drawer.addEventListener("click", (e) => {
+      if (e.target === drawer.querySelector(".absolute.inset-0.bg-black\\/40")) closeDrawer();
+    });
+
+    btnRefresh?.addEventListener("click", async () => {
+      try { await loadEvents(); toast("Refreshed."); } catch (e) { toast(e.message, "err"); }
+    });
+
+    searchEl.addEventListener("input", renderEvents);
+    sortEl.addEventListener("change", renderEvents);
+
+    // close modal when clicking backdrop
+    createModal.addEventListener("click", (e) => {
+      if (e.target === createModal) closeCreateModal();
+    });
+
+    // init
+    (async function init() {
+      try {
+        await loadEvents();
+      } catch (e) {
+        toast(e.message, "err");
+      }
+    })();
+  </script>
+</body>
+</html>

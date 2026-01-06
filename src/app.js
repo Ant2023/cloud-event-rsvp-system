@@ -1,12 +1,24 @@
 // src/app.js
 const express = require("express");
 const db = require("./db/database"); // must be ./db/database.js
+const path = require("path");
 
 const app = express();
+
+console.log("RUNNING FILE:", __filename);
+
+
+// Parse JSON bodies (for Postman/PowerShell/Fetch)
 app.use(express.json());
+
+// Parse HTML form submissions (application/x-www-form-urlencoded)
+app.use(express.urlencoded({ extended: true }));
 
 // PROVE which file is running (you will see this printed in terminal)
 console.log("RUNNING FILE:", __filename);
+
+// Serve static files from src/public
+app.use(express.static(path.join(__dirname, "public")));
 
 // ---------- Helpers (Promisified sqlite3) ----------
 function dbGet(sql, params = []) {
@@ -33,8 +45,9 @@ function dbRun(sql, params = []) {
 // ---------- Basic routes ----------
 app.get("/health", (req, res) => res.status(200).json({ status: "OK" }));
 
+// Serve the UI
 app.get("/", (req, res) => {
-  res.send("Cloud Event RSVP System is running");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.get("/debug", (req, res) => {
@@ -142,7 +155,7 @@ app.get("/rsvps", async (req, res) => {
   }
 });
 
-// ---------- Catch-all (so you never see plain "Cannot POST" again) ----------
+// ---------- Catch-all (clear 404s) ----------
 app.use((req, res) => {
   return res.status(404).json({
     error: "Route not found",
