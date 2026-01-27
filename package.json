@@ -2,9 +2,10 @@
   "name": "cloud-event-rsvp-system",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/app.js",
+  "test": "echo \"No tests yet\" && exit 0"
   },
   "repository": {
     "type": "git",
