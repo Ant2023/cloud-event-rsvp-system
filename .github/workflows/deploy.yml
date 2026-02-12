@@ -44,27 +44,23 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Download current task definition
+            - name: Download current task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition $TASK_DEFINITION_FAMILY \
             --query taskDefinition > taskdef.json
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Create new task definition revision
         run: |
           jq --arg IMAGE "$IMAGE_URI" \
           '.containerDefinitions |=
           map(if .name == "'$CONTAINER_NAME'" then .image=$IMAGE else . end)
-          | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)'
+          | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
           taskdef.json > new-taskdef.json
 
-      - name: Register new task definition
-        run: |
-          TASK_DEF_ARN=$(aws ecs register-task-definition \
-            --cli-input-json file://new-taskdef.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
 
       - name: Update ECS service
         run: |
