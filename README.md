@@ -132,5 +132,6 @@ The application is deployed using containerized infrastructure on AWS ECS, demon
 ---
 
 ## Author
+Anita Ismail
 Capstone Project – CSC480  
-Colorado State University Global
+Colorado State University Global 2026
