@@ -1,0 +1,26 @@
+{
+  "family": "rsvp-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::452897072308:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "rsvp-app",
+      "image": "452897072308.dkr.ecr.us-east-1.amazonaws.com/rsvp-app:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 3000, "protocol": "tcp" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/rsvp-app",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
